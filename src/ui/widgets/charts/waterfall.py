@@ -69,31 +69,42 @@ class PlotWaterfallDiagram(QWidget):
     
     def __init__(self, fft_size: int, num_rows: int):
         super().__init__()
+        self.fft_size = fft_size
+        self.num_rows = num_rows
+        
         self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        
         self.plot_widget = pg.PlotWidget()
+        self.plot_widget.setBackground('#1E1E2E')
         self.layout.addWidget(self.plot_widget)
 
         self.waterfall_plotter = WaterfallPlotter(fft_size, num_rows)
 
-        self.imageitem = pg.ImageItem(np.zeros((num_rows, fft_size)))
+        # Create image with correct orientation
+        self.imageitem = pg.ImageItem()
         self.plot_widget.addItem(self.imageitem)
         self.plot_widget.setMouseEnabled(x=False, y=False)
 
-        colormap = pg.colormap.get('viridis')
+        # Use a better colormap for RF visualization
+        colormap = pg.colormap.get('turbo')
         lut = colormap.getLookupTable(nPts=256)
         self.imageitem.setLookupTable(lut)
+        
+        # Set fixed levels for consistent display
+        self.imageitem.setLevels([-40, 40])
 
-        self.imageitem.setRect(pg.QtCore.QRectF(0, 0, fft_size, num_rows))
-        # self.plot_widget.invertY(True)
+        # Configure plot appearance
+        self.plot_widget.setLabel('bottom', 'Frequency Bin')
+        self.plot_widget.setLabel('left', 'Time')
         self.plot_widget.getAxis('left').setTicks([])
+        self.plot_widget.setXRange(0, fft_size)
+        self.plot_widget.setYRange(0, num_rows)
 
-        # Set labels for the axes
-        self.plot_widget.setLabel('bottom', 'Frequency (Hz)')
-        self.plot_widget.setLabel('left', 'Time (s)')
-
+        # Timer for smooth updates
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_plot)
-        self.timer.start(FIGURE_REFRESH_RATE)  # Update every second
+        self.timer.start(50)  # 20 FPS
 
         self.latest_psd = None
 

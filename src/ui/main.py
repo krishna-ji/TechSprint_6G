@@ -1,195 +1,307 @@
-from widgets.charts.waterfall import PlotWaterfallDiagram
-from widgets.charts.timedomain import PlotTimeDomain
-from widgets.charts.freqdomain import PlotFrequencyDomain
-from widgets.charts.constellation import PlotConstellation
-import qtawesome as qta
-from widgets.menu import MenuWidget
-from widgets.charts.probability import BarGraphWidget
-from interface.toolbar import create_tool_bar
-from interface.menu_bar import create_menu_bar
-from config import *
-from core.system import SystemController
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QStatusBar, QDockWidget, QLabel, QFrame, QHBoxLayout, QGridLayout
+"""
+Cognitive Radio Dashboard - Main Window
+
+A streamlined interface for real-time spectrum sensing and
+intelligent channel allocation using RL and AMC.
+
+Layout:
+┌─────────────────────────────────────────────────────────┐
+│  [Toolbar]                                               │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────┐    │
+│  │         COGNITIVE RADIO STATUS HUD              │    │
+│  │   [Modulation: QPSK]  [Channel: 7]  [SNR: 15dB] │    │
+│  └─────────────────────────────────────────────────┘    │
+├─────────────────────────────────────────────────────────┤
+│  ┌──────────────────────┐ ┌────────────────────────┐    │
+│  │                      │ │                        │    │
+│  │   SPECTRUM WATERFALL │ │   CHANNEL OCCUPANCY    │    │
+│  │   (Time-Frequency)   │ │   (RL Agent View)      │    │
+│  │                      │ │                        │    │
+│  └──────────────────────┘ └────────────────────────┘    │
+├─────────────────────────────────────────────────────────┤
+│  ┌──────────────────────┐ ┌────────────────────────┐    │
+│  │   CONSTELLATION      │ │   MODULATION PROBS     │    │
+│  │   (IQ Diagram)       │ │   (AMC Output)         │    │
+│  └──────────────────────┘ └────────────────────────┘    │
+└─────────────────────────────────────────────────────────┘
+"""
+
 import signal
 import sys
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QGridLayout, QFrame, QLabel, QStatusBar, QSplitter, QGroupBox
+)
+import qtawesome as qta
+
+from config import *
+from core.system import SystemController
+from interface.toolbar import create_tool_bar
+from interface.menu_bar import create_menu_bar
+from widgets.charts.waterfall import PlotWaterfallDiagram
+from widgets.charts.constellation import PlotConstellation
+from widgets.charts.probability import BarGraphWidget
+from widgets.charts.spectrum import ChannelSpectrumWidget
 
 
-class MainWindow(QMainWindow):
+class StatusCard(QFrame):
+    """A styled card for displaying a single status value."""
+    
+    def __init__(self, title: str, initial_value: str, accent_color: str):
+        super().__init__()
+        self.setObjectName("statusCard")
+        self.setStyleSheet(f"""
+            QFrame#statusCard {{
+                background-color: #252526;
+                border: 2px solid {accent_color};
+                border-radius: 8px;
+                padding: 10px;
+            }}
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setSpacing(4)
+        
+        # Title
+        self.title_label = QLabel(title)
+        self.title_label.setStyleSheet("""
+            color: #888888;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        """)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Value
+        self.value_label = QLabel(initial_value)
+        self.value_label.setStyleSheet(f"""
+            color: {accent_color};
+            font-size: 24px;
+            font-weight: bold;
+            font-family: 'Consolas', 'Monaco', monospace;
+        """)
+        self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.value_label)
+    
+    def set_value(self, value: str):
+        self.value_label.setText(value)
+
+
+class CognitiveRadioWindow(QMainWindow):
+    """
+    Main window for the Cognitive Radio Dashboard.
+    
+    Provides real-time visualization of:
+    - Spectrum waterfall (time-frequency analysis)
+    - Channel occupancy (RL agent's view of spectrum)
+    - Constellation diagram (IQ samples)
+    - Modulation classification probabilities
+    """
+    
     def __init__(self):
         super().__init__()
-        self.simulation_playground_window = None
-        self.setWindowTitle(WINDOW_TITLE)
-        self.setGeometry(X_OFFSET, Y_OFFSET, WINDOW_WIDTH, WINDOW_HEIGHT)
-
-        self.setWindowIcon(
-            QIcon(qta.icon('mdi.signal-5g').pixmap(32, 32)))        # set Icon
-        # self.setWindowIcon(qta.icon("icon.png"))
-
-        # Create the status bar
-        self.status_bar = QStatusBar(self)
-        self.setStatusBar(self.status_bar)
-
-        # Create the menu bar
-        self.setMenuBar(create_menu_bar(self))
-
-        # Create the Tool Bar
-        tool_bar = create_tool_bar(self)
-        tool_bar.setOrientation(Qt.Orientation.Vertical)
-        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, tool_bar)
-
-        # Create a central widget
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.layout = QVBoxLayout(self.central_widget)
+        self.setWindowTitle("Cognitive Radio - Spectrum Intelligence")
+        self.setGeometry(50, 50, 1400, 900)
+        self.setWindowIcon(QIcon(qta.icon('mdi.radio-tower').pixmap(32, 32)))
         
-        # --- System Controller (The Brain) ---
+        # Dark theme
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #1E1E2E;
+            }
+            QWidget {
+                color: #E0E0E0;
+                font-family: 'Segoe UI', 'Roboto', sans-serif;
+            }
+            QGroupBox {
+                background-color: #252526;
+                border: 1px solid #333333;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 10px;
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: #00E5FF;
+            }
+            QSplitter::handle {
+                background-color: #333333;
+            }
+        """)
+        
+        # Status bar
+        self.status_bar = QStatusBar()
+        self.status_bar.setStyleSheet("background-color: #1A1A1A; color: #888888;")
+        self.setStatusBar(self.status_bar)
+        
+        # Menu and toolbar
+        self.setMenuBar(create_menu_bar(self))
+        toolbar = create_tool_bar(self)
+        toolbar.setOrientation(Qt.Orientation.Horizontal)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+        
+        # Central widget
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_layout = QVBoxLayout(central)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
+        
+        # === SYSTEM CONTROLLER ===
         self.system = SystemController()
         
-        # --- Heads-Up Display (Status Panel) ---
-        # Instead of a dock, we place this at the top of the central layout ("The Dashboard")
-        self.status_frame = QFrame()
-        self.status_frame.setObjectName("statusFrame") # For QSS styling
-        self.status_layout = QGridLayout(self.status_frame)
+        # === STATUS HUD ===
+        hud_layout = QHBoxLayout()
+        hud_layout.setSpacing(15)
         
-        # Titles
-        lbl_mod_title = QLabel("DETECTED MODULATION")
-        lbl_mod_title.setObjectName("statusTitle")
-        lbl_chan_title = QLabel("ACTIVE CHANNEL")
-        lbl_chan_title.setObjectName("statusTitle")
+        self.card_modulation = StatusCard("DETECTED MODULATION", "SCANNING...", "#FF2A6D")
+        self.card_channel = StatusCard("ACTIVE CHANNEL", "--", "#00E5FF")
+        self.card_status = StatusCard("SYSTEM STATUS", "INITIALIZING", "#2ECC71")
         
-        # Values (Styled as badged/LCD)
-        self.lbl_mod_val = QLabel("WAITING...")
-        self.lbl_mod_val.setObjectName("modLabel") 
-        self.lbl_chan_val = QLabel("SCANNING...")
-        self.lbl_chan_val.setObjectName("chanLabel")
+        hud_layout.addWidget(self.card_modulation)
+        hud_layout.addWidget(self.card_channel)
+        hud_layout.addWidget(self.card_status)
         
-        # Add to grid
-        self.status_layout.addWidget(lbl_mod_title, 0, 0)
-        self.status_layout.addWidget(self.lbl_mod_val, 1, 0)
-        self.status_layout.addWidget(lbl_chan_title, 0, 1)
-        self.status_layout.addWidget(self.lbl_chan_val, 1, 1)
+        main_layout.addLayout(hud_layout)
         
-        # Add status frame to top of main layout
-        self.layout.addWidget(self.status_frame)
-
-        # Create and add the dockable plot widgets
-        # Enable external driving for constellation to use SystemController data
-        self.plot_constellation_widget = PlotConstellation(external_drive=True)
-        dock_widget1 = QDockWidget("Constellation Plot", self)
-        dock_widget1.setWidget(self.plot_constellation_widget)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock_widget1)
-
-        self.plot_widget2 = PlotFrequencyDomain()
-        dock_widget2 = QDockWidget("Frequency Domain Plot", self)
-        dock_widget2.setWidget(self.plot_widget2)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_widget2)
-
-        self.plot_widget3 = PlotTimeDomain()
-        dock_widget3 = QDockWidget("Time Domain Plot", self)
-        dock_widget3.setWidget(self.plot_widget3)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock_widget3)
-
-        self.plot_widget4 = PlotWaterfallDiagram(
-            VARS["FFT_SIZE"], VARS["NUM_ROWS"])
-        dock_widget4 = QDockWidget("Waterfall Plot", self)
-        dock_widget4.setWidget(self.plot_widget4)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_widget4)
+        # === MAIN VISUALIZATION AREA ===
+        viz_splitter = QSplitter(Qt.Orientation.Vertical)
         
-        # --- Removed Old Status Dock (Now in HUD Frame ) ---
-
-        # Create and add the dockable bar graph widget
-        self.bar_graph_widget = BarGraphWidget()
-        dock_widget_bar = QDockWidget("Bar Graph", self)
-        dock_widget_bar.setWidget(self.bar_graph_widget)
-        self.addDockWidget(
-            Qt.DockWidgetArea.RightDockWidgetArea, dock_widget_bar)
-
-        # Create and add another dockable menu on the left side
-        another_dock_widget = QDockWidget("Another Menu", self)
-        self.menu_widget = MenuWidget(self)  # The menu widget reference
-        another_dock_widget.setWidget(self.menu_widget)
-        self.addDockWidget(
-            Qt.DockWidgetArea.LeftDockWidgetArea, another_dock_widget)
-
-        # Dock arrangement - Improved Tiled Layout
-        # Stack Secondary plots and Tabify similar ones
-        self.splitDockWidget(dock_widget1, dock_widget3, Qt.Orientation.Vertical) # Constellation over Time
-        self.splitDockWidget(dock_widget2, dock_widget4, Qt.Orientation.Vertical) # Freq over Waterfall
+        # --- Top Row: Waterfall + Channel Spectrum ---
+        top_splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # Tabify Time and Freq Domain (Secondary views)
-        self.tabifyDockWidget(dock_widget3, dock_widget2)
+        # Waterfall
+        waterfall_group = QGroupBox("SPECTRUM WATERFALL")
+        waterfall_layout = QVBoxLayout(waterfall_group)
+        waterfall_layout.setContentsMargins(5, 15, 5, 5)
+        self.waterfall_widget = PlotWaterfallDiagram(FFT_SIZE, 100)
+        waterfall_layout.addWidget(self.waterfall_widget)
         
-        # Ensure Waterfall is prominent
-        self.resizeDocks([dock_widget4], [400], Qt.Orientation.Vertical)
+        # Channel Spectrum
+        spectrum_group = QGroupBox("CHANNEL OCCUPANCY (RL View)")
+        spectrum_layout = QVBoxLayout(spectrum_group)
+        spectrum_layout.setContentsMargins(5, 15, 5, 5)
+        self.spectrum_widget = ChannelSpectrumWidget(N_CHANNELS)
+        spectrum_layout.addWidget(self.spectrum_widget)
         
-        # --- Connect System Controller Signals ---
-        # All data flows from SystemController (single source of truth)
+        top_splitter.addWidget(waterfall_group)
+        top_splitter.addWidget(spectrum_group)
+        top_splitter.setSizes([700, 500])
         
-        # IQ data to constellation and other plots
-        self.system.update_plots.connect(self.plot_constellation_widget.update_from_external)
-        self.system.update_plots.connect(self.plot_widget2.data_gen.generate_frequency_domain_data)
-        self.system.update_plots.connect(
-            lambda iq_data: self.plot_widget3.data_gen.generate_time_domain_data(
-                iq_data, VARS["SAMPLE_RATE"])
-        )
-        self.system.update_plots.connect(
-            lambda iq_data: self.plot_widget4.update_plot(iq_data)
-        )
+        # --- Bottom Row: Constellation + Probability ---
+        bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # Probabilities to bar graph (no duplicate inference!)
-        self.system.update_probs.connect(self.bar_graph_widget.update_probabilities)
+        # Constellation
+        constellation_group = QGroupBox("CONSTELLATION (IQ)")
+        constellation_layout = QVBoxLayout(constellation_group)
+        constellation_layout.setContentsMargins(5, 15, 5, 5)
+        self.constellation_widget = PlotConstellation(external_drive=True)
+        constellation_layout.addWidget(self.constellation_widget)
+        
+        # Probability
+        prob_group = QGroupBox("MODULATION CLASSIFICATION")
+        prob_layout = QVBoxLayout(prob_group)
+        prob_layout.setContentsMargins(5, 15, 5, 5)
+        self.prob_widget = BarGraphWidget()
+        prob_layout.addWidget(self.prob_widget)
+        
+        bottom_splitter.addWidget(constellation_group)
+        bottom_splitter.addWidget(prob_group)
+        bottom_splitter.setSizes([500, 700])
+        
+        # Add rows to vertical splitter
+        viz_splitter.addWidget(top_splitter)
+        viz_splitter.addWidget(bottom_splitter)
+        viz_splitter.setSizes([500, 350])
+        
+        main_layout.addWidget(viz_splitter, stretch=1)
+        
+        # === CONNECT SIGNALS ===
+        self._connect_signals()
+        
+        # Start system
+        self.system.start_system()
+        self.card_status.set_value("RUNNING")
+    
+    def _connect_signals(self):
+        """Connect SystemController signals to UI widgets."""
+        # IQ data to visualizations
+        self.system.update_plots.connect(self.constellation_widget.update_from_external)
+        self.system.update_plots.connect(self.waterfall_widget.update_plot)
+        
+        # Probabilities to bar chart
+        self.system.update_probs.connect(self.prob_widget.update_probabilities)
+        
+        # Spectrum occupancy
+        self.system.update_spectrum.connect(self.spectrum_widget.update_occupancy)
         
         # Status updates
-        self.system.update_status.connect(self.update_status_display)
+        self.system.update_status.connect(self._update_hud)
+    
+    def _update_hud(self, mod_text: str, chan_text: str):
+        """Update the heads-up display cards."""
+        # Parse modulation text
+        if ":" in mod_text:
+            mod_value = mod_text.split(":")[1].strip()
+        else:
+            mod_value = mod_text
+        self.card_modulation.set_value(mod_value)
         
-        # Start the system
-        self.system.start_system()
-
-    def update_status_display(self, mod_text, chan_text):
-        self.lbl_mod_val.setText(mod_text)
-        self.lbl_chan_val.setText(chan_text)
-        self.status_bar.showMessage(f"{mod_text} | {chan_text}")
-
+        # Parse channel text
+        if ":" in chan_text:
+            chan_value = chan_text.split(":")[1].strip()
+            try:
+                chan_num = int(chan_value)
+                self.spectrum_widget.set_selected_channel(chan_num)
+            except ValueError:
+                pass
+        else:
+            chan_value = chan_text
+        self.card_channel.set_value(chan_value)
+        
+        # Status bar
+        self.status_bar.showMessage(f"📡 {mod_text} | 📻 {chan_text}")
+    
     def closeEvent(self, event):
-        print("Closing application...")
-        # Stop system
+        """Clean shutdown."""
+        print("Shutting down Cognitive Radio...")
+        self.card_status.set_value("STOPPING")
         self.system.stop_system()
-        # Stop the constellation flowgraph on exit
-        self.plot_constellation_widget.close()
+        self.constellation_widget.close()
         event.accept()
 
 
-# class SimulationPlaygroundWindow(QMainWindow):
-#     def __init__(self):
-#         super().__init__()
-#         self.setWindowTitle("Simulation Playground")
-#         self.setGeometry(100, 100, 800, 600)
-#         self.setWindowIcon(QIcon(qta.icon('mdi.play-circle').pixmap(32, 32)))
+# Keep old MainWindow as alias for compatibility
+MainWindow = CognitiveRadioWindow
 
-#         # Add your simulation playground widgets and layout here
-#         self.central_widget = QWidget()
-#         self.setCentralWidget(self.central_widget)
-#         self.layout = QVBoxLayout(self.central_widget)
-#         # Example widget
-#         self.label = QLabel("Welcome to the Simulation Playground!")
-#         self.layout.addWidget(self.label)
+
+def main():
+    """Launch the Cognitive Radio application."""
+    app = QApplication(sys.argv)
+    
+    # High DPI scaling
+    app.setStyle('Fusion')
+    
+    window = CognitiveRadioWindow()
+    window.show()
+    
+    # Handle Ctrl+C
+    def signal_handler(sig, frame):
+        print("\nSignal received, closing...")
+        window.close()
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-
-    # Load and apply the QSS file
-    with open("style.qss", "r") as file:
-        app.setStyleSheet(file.read())
-
-    main_window = MainWindow()
-    main_window.show()
-
-    def signal_handler(sig, frame):
-        print("Signal received, closing application...")
-        main_window.close()
-
-    signal.signal(signal.SIGINT, signal_handler)
-    sys.exit(app.exec())
+    main()

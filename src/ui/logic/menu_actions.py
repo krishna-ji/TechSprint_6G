@@ -73,6 +73,21 @@ def close_app(main_window):
     QApplication.quit()
 
 
+def simulate(main_window):
+    """Open simulation mode / load IQ file."""
+    options = QFileDialog.Options()
+    file_path, _ = QFileDialog.getOpenFileName(
+        main_window,
+        "Load IQ Data",
+        "",
+        "Binary Files (*.bin);;All Files (*)",
+        options=options
+    )
+    if file_path:
+        main_window.statusBar().showMessage(f"Loaded: {file_path}", 3000)
+        # TODO: Implement IQ file playback
+
+
 def about_app(main_window):
     """Show about dialog."""
     copyright_info = "© 2025 TechSprint 6G. All rights reserved."

@@ -59,18 +59,34 @@ class DataWorker(QObject):
                 iq_data = self._simulate_iq()
             
             # 2. AMC Classification (SINGLE inference point)
-            probs = self.amc.predict_proba(iq_data)
-            avg_probs = probs.mean(axis=0)  # Average across windows
-            
-            # Apply EWMA smoothing
-            if self.ewma_probs is None:
-                self.ewma_probs = avg_probs
-            else:
-                self.ewma_probs = self.alpha * avg_probs + (1 - self.alpha) * self.ewma_probs
-            
-            # Get predicted class
-            class_id = int(np.argmax(self.ewma_probs))
-            mod_class = self.amc.CLASSES[class_id]
+            try:
+                probs = self.amc.predict_proba(iq_data)
+                avg_probs = probs.mean(axis=0)  # Average across windows
+                
+                # Ensure probs matches expected class count
+                n_classes = len(self.amc.CLASSES)
+                if len(avg_probs) != n_classes:
+                    # Pad or truncate to match
+                    if len(avg_probs) < n_classes:
+                        avg_probs = np.pad(avg_probs, (0, n_classes - len(avg_probs)))
+                    else:
+                        avg_probs = avg_probs[:n_classes]
+                
+                # Apply EWMA smoothing
+                if self.ewma_probs is None:
+                    self.ewma_probs = avg_probs
+                else:
+                    self.ewma_probs = self.alpha * avg_probs + (1 - self.alpha) * self.ewma_probs
+                
+                # Get predicted class
+                class_id = int(np.argmax(self.ewma_probs))
+                class_id = min(class_id, n_classes - 1)  # Safety clamp
+                mod_class = self.amc.CLASSES[class_id]
+            except Exception as e:
+                print(f"AMC inference error: {e}")
+                self.ewma_probs = np.array([1.0, 0.0, 0.0, 0.0])
+                class_id = 0
+                mod_class = "Noise"
             
             # 3. Determine occupancy (non-noise = occupied)
             is_occupied = 1 if class_id > 0 else 0
