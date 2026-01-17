@@ -1,0 +1,5 @@
+# Model files
+# Place your trained models here:
+# - rl_model.zip (PPO model from stable-baselines3)
+# - amc_model.pth (PyTorch AMC model)
+# - amc_model.onnx (ONNX export for inference)

@@ -1,0 +1,296 @@
+/* Global Styling - Cyber-Industrial Theme */
+QWidget {
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    font-size: 14px;
+    color: #E0E0E0;
+    /* Deep Gunmetal instead of pure black for depth */
+    background-color: #1E1E2E; 
+}
+
+/* Main Window */
+QMainWindow {
+    background-color: #1E1E2E;
+}
+
+/* --- Heads-Up Display (Status Header) --- */
+QFrame#statusFrame {
+    background-color: #252526;
+    border-bottom: 2px solid #007ACC;
+    border-radius: 4px;
+    margin: 5px;
+    padding: 10px;
+}
+
+QLabel#statusTitle {
+    color: #AAAAAA;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+}
+
+QLabel#modLabel {
+    background-color: #000000;
+    border: 1px solid #FF2A6D; /* Neon Pink/Red for ID */
+    color: #FF2A6D;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-family: "Consolas", "Monospace";
+    font-size: 18px;
+    font-weight: bold;
+    min-width: 150px;
+    qproperty-alignment: AlignCenter;
+}
+
+QLabel#chanLabel {
+    background-color: #000000;
+    border: 1px solid #00E5FF; /* Neon Cyan for Channel */
+    color: #00E5FF;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-family: "Consolas", "Monospace";
+    font-size: 18px;
+    font-weight: bold;
+    min-width: 150px;
+    qproperty-alignment: AlignCenter;
+}
+
+/* --- Dock Widgets --- */
+QDockWidget {
+    titlebar-close-icon: url(icons/close.png);
+    titlebar-normal-icon: url(icons/float.png);
+    border: 1px solid #333333;
+}
+
+QDockWidget::title {
+    background: #2D2D30;
+    text-align: left; 
+    padding-left: 10px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    /* Professional accent line on active docks */
+    border-bottom: 2px solid #00E5FF; 
+    font-weight: bold;
+}
+
+/* --- Menus & Toolbars --- */
+QMenuBar {
+    background-color: #2D2D30;
+    border-bottom: 1px solid #333333;
+}
+
+QMenuBar::item:selected {
+    background-color: #3E3E42;
+}
+
+QToolBar {
+    background-color: #2D2D30;
+    border: none;
+    spacing: 10px;
+}
+
+/* --- Tab Widgets (for grouped docks) --- */
+QTabBar::tab {
+    background: #2D2D30;
+    color: #888888;
+    padding: 8px 20px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background: #3E3E42;
+    color: #FFFFFF;
+    border-bottom: 2px solid #00E5FF;
+}
+
+/* --- Plot Widgets (PyQtGraph embedding) --- */
+/* Note: Inner plot colors are handled in Python, this is the container */
+PlotWidget {
+    border: 1px solid #333333;
+    border-radius: 4px;
+}
+    border-radius: 10px; /* Curved border */
+    background-color: #1A1A1A;
+    margin: 5px; /* Space around the dock widget to show the curved border */
+}
+
+
+QDockWidget::title {
+    background: #353535;
+    text-align: center;
+    padding: 3px;
+    border-bottom: none;
+    border-top-left-radius: 5px; /* Curved border for the title */
+    border-top-right-radius: 5px; /* Curved border for the title */
+}
+
+QDockWidget::close-button, QDockWidget::float-button {
+    border: none;
+    color: #FFFFFF;
+    padding: 2px;
+}
+
+QDockWidget::close-button:hover, QDockWidget::float-button:hover {
+    background: #333333;
+}
+
+QDockWidget::close-button:pressed, QDockWidget::float-button:pressed {
+    background: #4D4D4D;
+}
+
+/* Toolbar styling */
+QToolBar {
+    background-color: #1A1A1A;
+    border-bottom: 1px solid #333333;
+}
+
+QToolBar QToolButton {
+    background-color: #1A1A1A;
+    border: none;
+    padding: 5px;
+    margin: 2px;
+    color: #E0E0E0;
+}
+
+QToolBar QToolButton:hover {
+    background-color: #333333;
+}
+
+QToolBar QToolButton:pressed {
+    background-color: #4D4D4D;
+}
+
+/* Slider styling */
+QSlider::groove:horizontal {
+    border: 1px solid #333333;
+    height: 8px;
+    background: #4D4D4D;
+    margin: 2px 0;
+}
+
+QSlider::handle:horizontal {
+    background: #E0E0E0;
+    border: 1px solid #E0E0E0;
+    width: 18px;
+    margin: -2px 0;
+    border-radius: 3px;
+}
+
+QSlider::handle:horizontal:hover {
+    background: #FFFFFF;
+    border: 1px solid #FFFFFF;
+}
+
+/* LineEdit styling */
+QLineEdit {
+    border: 1px solid #333333;
+    border-radius: 3px;
+    padding: 5px;
+    background-color: #1A1A1A;
+    color: #E0E0E0;
+}
+
+QLineEdit:focus {
+    border: 1px solid #E0E0E0;
+}
+
+/* Label styling */
+QLabel {
+    color: #E0E0E0;
+}
+
+/* PlotWidget styling */
+PlotWidget {
+    background-color: #1A1A1A;
+    border: 1px solid #333333;
+}
+
+QGraphicsView {
+    background-color: #1A1A1A;
+    border: 1px solid #333333;
+}
+
+/* PushButton styling */
+QPushButton {
+    background-color: #1A1A1A;
+    border: 1px solid #333333;
+    padding: 5px;
+    color: #E0E0E0;
+}
+
+QPushButton:hover {
+    background-color: #333333;
+}
+
+QPushButton:pressed {
+    background-color: #4D4D4D;
+}
+
+/* ScrollBar styling */
+QScrollBar:vertical {
+    border: 1px solid #333333;
+    background: #1A1A1A;
+    width: 15px;
+    margin: 22px 0 22px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #4D4D4D;
+    min-height: 20px;
+}
+
+QScrollBar::add-line:vertical {
+    border: 1px solid #333333;
+    background: #333333;
+    height: 20px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:vertical {
+    border: 1px solid #333333;
+    background: #333333;
+    height: 20px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+/* TabWidget styling */
+QTabWidget::pane {
+    border: 1px solid #333333;
+    background: #1A1A1A;
+}
+
+QTabBar::tab {
+    background: #1A1A1A;
+    border: 1px solid #333333;
+    padding: 5px;
+    color: #E0E0E0;
+}
+
+QTabBar::tab:selected {
+    background: #333333;
+}
+
+/* TableView styling */
+QTableView {
+    border: 1px solid #333333;
+    background: #1A1A1A;
+    color: #E0E0E0;
+}
+
+QHeaderView::section {
+    background: #1A1A1A;
+    border: 1px solid #333333;
+    padding: 5px;
+    color: #E0E0E0;
+}
+
+QToolBar::separator {
+    background-color: #e0e0e0;
+    width: 100px;
+    height: 1px;
+}
