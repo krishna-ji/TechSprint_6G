@@ -22,7 +22,7 @@ Usage
 # =============================================================================
 # WINDOW CONFIGURATION
 # =============================================================================
-WINDOW_TITLE = "Automated Radio Frequency Identification System"
+WINDOW_TITLE = "Intelligent 6G Cognitive Radio"
 X_OFFSET = 0
 Y_OFFSET = 0
 WINDOW_HEIGHT = 900
