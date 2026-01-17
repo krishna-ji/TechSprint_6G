@@ -3,7 +3,7 @@
 ## Problem Statement
 The transition to 6G networks introduces unprecedented demand for frequency resources, yet traditional static and rule-based spectrum allocation remains incapable of adapting to rapidly changing wireless environments and unpredictable Primary User (PU) activity. This rigidity leads to severe spectrum underutilization, characterized by **spectral holes**, and harmful interference that degrades the Quality of Service (QoS) for Secondary Users (SUs) in dense, heterogeneous environments.
 
-While existing learning-based approaches attempt to address these dynamics, they frequently suffer from slow convergence and the **cold-start problem**, failing to balance global optimization with real-time tactical adaptation. Consequently, there is a critical need for an intelligent, autonomous mechanism capable of continuous real-time adaptation to ensure efficient coexistence and maximized throughput in highly dynamic 6G Cognitive Radio Networks (CRNs).
+While existing learning-based approaches attempt to address these dynamics, they frequently suffer from slow convergence and the **cold-start problem**, failing to balance global optimization with real-time tactical adaptation. Consequently, there is a critical need for an intelligent, autonomous mechanism capable of continuous `real-time adaptation to ensure efficient coexistence and maximized throughput in highly dynamic 6G Cognitive Radio Networks (CRNs).
 
 ---
 
