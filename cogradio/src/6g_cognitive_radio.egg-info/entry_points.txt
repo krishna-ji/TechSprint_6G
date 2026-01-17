@@ -1,0 +1,14 @@
+[console_scripts]
+clean = src.cli:clean
+demo = src.cli:demo
+evaluate = src.cli:evaluate
+gen-data = src.cli:gen_data
+help = src.cli:help_cmd
+pipeline = src.cli:run_pipeline
+pipeline-quick = src.cli:run_pipeline_quick
+plot-convergence = src.cli:plot_convergence
+status = src.cli:status
+tensorboard = src.cli:tensorboard
+train-baseline = src.cli:train_baseline
+train-ga = src.cli:train_ga
+train-quick = src.cli:train_quick
