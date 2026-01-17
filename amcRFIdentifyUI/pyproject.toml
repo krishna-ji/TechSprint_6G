@@ -1,0 +1,13 @@
+[project]
+name = "automatic-rf-identification-for-intelligent-communication"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.4.1",
+    "onnxruntime>=1.23.2",
+    "pyqt6>=6.10.2",
+    "pyqtgraph>=0.14.0",
+    "qtawesome>=1.4.0",
+]

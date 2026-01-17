@@ -1,0 +1,9 @@
+{
+    "python.terminal.activateEnvironment": true,
+    "files.autosave": "afterDelay",
+    "terminal.integrated.cwd": "${workspaceFolder}",
+    "files.exclude": {
+        "**/bin": true,
+        "**/__pycache__": true,
+    }
+}
