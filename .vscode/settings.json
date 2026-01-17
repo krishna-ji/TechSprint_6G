@@ -1,3 +1,20 @@
 {
     "python.terminal.activateEnvInCurrentTerminal": true,
+    "github.copilot.chat.commitMessageGeneration.instructions": [
+        {
+            "text": "Follow the strict format: <type>(<scope>): <short description>."
+        },
+        {
+            "text": "Use one of the mandatory types: feat, fix, chore, refactor, style, docs, test, perf, ci, revert."
+        },
+        {
+            "text": "Always include a scope in parentheses (e.g., auth, survey)."
+        },
+        {
+            "text": "Keep the description short and condensed."
+        },
+        {
+            "text": "If the commit is complex, include a body with a bulleted list separated by a blank line."
+        }
+    ]
 }
