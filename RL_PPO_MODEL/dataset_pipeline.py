@@ -13,13 +13,38 @@ warnings.filterwarnings('ignore')
 
 
 class IoTTrafficConfig:
-   
+    """
+    Configuration for 6G IoT traffic generation with multi-class support.
+    
+    Class ID Mapping (for AMC/IQ Generation):
+        0 = Noise (Empty Channel)
+        1 = Type A Critical IoT → Maps to FM-like signal (Primary User)
+        2 = Type B Delay-Tolerant → Maps to BPSK signal (Low-power IoT)
+        3 = Type C High-Throughput → Maps to QPSK signal (Secondary User)
+    """
     
     def __init__(self):
         self.n_channels = 20
         self.time_steps_train = 10000
         self.time_steps_test = 2000
         self.n_devices = 60  # Optimized for ~70% occupancy with current traffic params
+
+        # CLASS ID MAPPING: Links traffic types to modulation schemes
+        # Used by IQGenerator to create appropriate waveforms
+        self.class_id_map = {
+            'noise': 0,      # Empty channel → Noise floor
+            'type_a': 1,     # Critical IoT (URLLC) → FM-like (high power, continuous)
+            'type_b': 2,     # Delay-tolerant (mMTC) → BPSK (low power, sparse)
+            'type_c': 3      # High-throughput (eMBB) → QPSK (medium power, bursty)
+        }
+        
+        # Reverse mapping for label lookup
+        self.class_names = {
+            0: 'Noise',
+            1: 'FM_PrimaryUser',
+            2: 'BPSK_IoT',
+            3: 'QPSK_SecondaryUser'
+        }
 
         # BEST PRACTICE: Mixed-load curriculum for robust RL generalization
         # Train/test use the SAME load distribution to avoid evaluation mismatch
@@ -195,9 +220,15 @@ class SpectrumDataGenerator:
                 )))
                 device_stats['packets'].append(packet_size)
                 
-                # Mark spectrum as occupied (OR operation - if any device transmits, channel is occupied)
+                # Mark spectrum with CLASS ID (preserves device type information)
+                # Higher priority devices overwrite lower priority when overlapping
                 end_t = min(t + duration, n_steps)
-                grid[t:end_t, assigned_channel] = 1
+                class_id = self.config.class_id_map[device_type]
+                # Use max to preserve higher-priority signals when overlapping
+                grid[t:end_t, assigned_channel] = np.maximum(
+                    grid[t:end_t, assigned_channel], 
+                    class_id
+                )
                 
                 t = end_t
         
@@ -267,11 +298,14 @@ class SpectrumDataGenerator:
         for device_type, original_value in original_config.items():
             getattr(self.config, device_type)['avg_inter_arrival'] = original_value
         
-        # Combine all grids (logical OR - channel is busy if ANY device uses it)
-        combined_grid = np.clip(
-            grids['type_a'] + grids['type_b'] + grids['type_c'],
-            0, 1
-        ).astype(np.int8)
+        # Combine all grids using MAX (preserves highest-priority class ID)
+        # Priority: Type A (1) < Type B (2) < Type C (3)
+        # This ensures overlapping transmissions show the "dominant" signal
+        combined_grid = np.maximum.reduce([
+            grids['type_a'],
+            grids['type_b'],
+            grids['type_c']
+        ]).astype(np.int8)
         
         return combined_grid, all_stats
 
