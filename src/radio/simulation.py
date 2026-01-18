@@ -508,19 +508,20 @@ class SimulationTrafficGenerator:
         self.use_playback = False
         
         # Class ID to service class mapping (from dataset_pipeline)
+        # NOTE: Aligning dataset Type A -> URLLC (not a Primary Licensed User).
         self.class_id_to_service = {
             0: ServiceClass.FREE,      # Noise
-            1: ServiceClass.PU,        # FM_PrimaryUser (Type A Critical)
-            2: ServiceClass.mMTC,      # BPSK_IoT (Type B Delay-tolerant)
-            3: ServiceClass.eMBB,      # QPSK_SecondaryUser (Type C High-throughput)
+            1: ServiceClass.URLLC,     # QPSK_URLLC (Type A Critical)
+            2: ServiceClass.mMTC,      # BPSK_mMTC (Type B Delay-tolerant)
+            3: ServiceClass.eMBB,      # 64QAM_eMBB (Type C High-throughput)
         }
         
         # Class ID to modulation mapping
         self.class_id_to_modulation = {
             0: "Noise",
-            1: "FM",       # Primary User
+            1: "QPSK",     # URLLC
             2: "BPSK",     # mMTC
-            3: "QPSK",     # eMBB
+            3: "64QAM",    # eMBB
         }
         
         # Try to load spectrum data from notebooks/data/generated/

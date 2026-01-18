@@ -18,9 +18,9 @@ class IoTTrafficConfig:
     
     Class ID Mapping (for AMC/IQ Generation):
         0 = Noise (Empty Channel)
-        1 = Type A Critical IoT → Maps to FM-like signal (Primary User)
-        2 = Type B Delay-Tolerant → Maps to BPSK signal (Low-power IoT)
-        3 = Type C High-Throughput → Maps to QPSK signal (Secondary User)
+        1 = Type A Critical IoT → Maps to QPSK signal (URLLC - Ultra-Reliable Low-Latency)
+        2 = Type B Delay-Tolerant → Maps to BPSK signal (mMTC - massive Machine-Type Comm)
+        3 = Type C High-Throughput → Maps to 64QAM/QPSK signal (eMBB - enhanced Mobile Broadband)
     """
     
     def __init__(self):
@@ -33,17 +33,17 @@ class IoTTrafficConfig:
         # Used by IQGenerator to create appropriate waveforms
         self.class_id_map = {
             'noise': 0,      # Empty channel → Noise floor
-            'type_a': 1,     # Critical IoT (URLLC) → FM-like (high power, continuous)
+            'type_a': 1,     # Critical IoT (URLLC) → QPSK (robust, low-latency)
             'type_b': 2,     # Delay-tolerant (mMTC) → BPSK (low power, sparse)
-            'type_c': 3      # High-throughput (eMBB) → QPSK (medium power, bursty)
+            'type_c': 3      # High-throughput (eMBB) → 64QAM/QPSK (high throughput)
         }
         
         # Reverse mapping for label lookup
         self.class_names = {
             0: 'Noise',
-            1: 'FM_PrimaryUser',
-            2: 'BPSK_IoT',
-            3: 'QPSK_SecondaryUser'
+            1: 'QPSK_URLLC',
+            2: 'BPSK_mMTC',
+            3: '64QAM_eMBB'
         }
 
         # BEST PRACTICE: Mixed-load curriculum for robust RL generalization
