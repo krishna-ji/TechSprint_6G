@@ -17,7 +17,7 @@ from PyQt6.QtGui import QIcon, QFont
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QFrame, QLabel, QStatusBar, QSplitter, QGroupBox,
-    QTabWidget
+    QTabWidget, QScrollArea
 )
 import qtawesome as qta
 import numpy as np
@@ -33,6 +33,7 @@ from widgets.charts.user_classification import UserClassificationPanel
 from widgets.charts.rl_visualizer import RLDecisionPanel, AllocationIntelligencePanel
 from widgets.charts.probability import BarGraphWidget
 from widgets.charts.waterfall import PlotWaterfallDiagram
+from widgets.charts.qos_metrics import QoSMetricsPanel
 
 
 class StatusCard(QFrame):
@@ -44,20 +45,22 @@ class StatusCard(QFrame):
         self.setStyleSheet(f"""
             QFrame#statusCard {{
                 background-color: #252526;
-                border: 2px solid {accent_color};
-                border-radius: 8px;
-                padding: 10px;
+                border: 1px solid {accent_color};
+                border-radius: 4px;
+                padding: 3px;
             }}
         """)
+        self.setMaximumHeight(55)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(4)
+        layout.setSpacing(1)
+        layout.setContentsMargins(3, 2, 3, 2)
         
         # Title
         self.title_label = QLabel(title)
         self.title_label.setStyleSheet("""
             color: #888888;
-            font-size: 11px;
+            font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
         """)
@@ -67,7 +70,7 @@ class StatusCard(QFrame):
         self.value_label = QLabel(initial_value)
         self.value_label.setStyleSheet(f"""
             color: {accent_color};
-            font-size: 20px;
+            font-size: 13px;
             font-weight: bold;
             font-family: 'Consolas', 'Monaco', monospace;
         """)
@@ -75,7 +78,7 @@ class StatusCard(QFrame):
         
         # Subtitle
         self.subtitle_label = QLabel("")
-        self.subtitle_label.setStyleSheet("color: #666; font-size: 9px;")
+        self.subtitle_label.setStyleSheet("color: #666; font-size: 8px;")
         self.subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         layout.addWidget(self.title_label)
@@ -101,7 +104,8 @@ class CognitiveRadioDashboard(QMainWindow):
     def __init__(self, use_hardware: bool = False):
         super().__init__()
         self.use_hardware = use_hardware
-        self.setWindowTitle("Cognitive Radio - Spectrum Intelligence Dashboard")
+        mode_text = "Hardware" if use_hardware else "Simulation"
+        self.setWindowTitle(f"Cognitive Radio - Spectrum Intelligence Dashboard [{mode_text}]")
         self.setGeometry(50, 50, 1500, 950)
         self.setWindowIcon(QIcon(qta.icon('mdi.radio-tower').pixmap(32, 32)))
         
@@ -160,19 +164,92 @@ class CognitiveRadioDashboard(QMainWindow):
         toolbar.setOrientation(Qt.Orientation.Horizontal)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
         
-        # Central widget
+        # Central widget with scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: #1E1E2E;
+            }
+            QScrollBar:vertical {
+                background-color: #1E1E2E;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #444;
+                border-radius: 6px;
+                min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #555;
+            }
+            QScrollBar:horizontal {
+                background-color: #1E1E2E;
+                height: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:horizontal {
+                background-color: #444;
+                border-radius: 6px;
+                min-width: 30px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background-color: #555;
+            }
+            QScrollBar::add-line, QScrollBar::sub-line {
+                background: none;
+                border: none;
+            }
+        """)
+        
+        # Content widget inside scroll area
         central = QWidget()
-        self.setCentralWidget(central)
+        scroll_area.setWidget(central)
+        self.setCentralWidget(scroll_area)
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(10)
+        
+        # === SIMULATION MODE BANNER ===
+        if not use_hardware:
+            sim_banner = QFrame()
+            sim_banner.setStyleSheet("""
+                QFrame {
+                    background-color: #1a3a5c;
+                    border: 1px solid #3498DB;
+                    border-radius: 4px;
+                    padding: 5px;
+                }
+            """)
+            sim_banner_layout = QHBoxLayout(sim_banner)
+            sim_banner_layout.setContentsMargins(10, 5, 10, 5)
+            
+            sim_icon = QLabel("🖥️")
+            sim_icon.setStyleSheet("font-size: 16px;")
+            sim_banner_layout.addWidget(sim_icon)
+            
+            sim_text = QLabel("6G SIMULATION MODE - Research-grade network slicing (PU: Ch 2,10,14 | URLLC + mMTC + eMBB)")
+            sim_text.setStyleSheet("color: #3498DB; font-size: 11px; font-weight: bold;")
+            sim_banner_layout.addWidget(sim_text)
+            
+            sim_banner_layout.addStretch()
+            
+            traffic_info = QLabel("🔴 URLLC (<1ms) │ 🟣 mMTC (1M dev/km²) │ 🔵 eMBB (20Gbps)")
+            traffic_info.setStyleSheet("color: #888; font-size: 10px;")
+            sim_banner_layout.addWidget(traffic_info)
+            
+            main_layout.addWidget(sim_banner)
         
         # === SYSTEM CONTROLLER ===
         self.system_controller = SystemController(use_hardware=self.use_hardware)
         
         # === STATUS HUD ===
         hud_layout = QHBoxLayout()
-        hud_layout.setSpacing(15)
+        hud_layout.setSpacing(8)
         
         self.card_modulation = StatusCard("MODULATION (via AMC)", "SCANNING...", "#FF2A6D")
         self.card_channel = StatusCard("ACTIVE CHANNEL", "--", "#00E5FF")
@@ -202,32 +279,44 @@ class CognitiveRadioDashboard(QMainWindow):
         # Spectrum matrix (time-frequency)
         matrix_group = QGroupBox("SPECTRUM OCCUPANCY MATRIX (Time-Frequency)")
         matrix_layout = QVBoxLayout(matrix_group)
-        matrix_layout.setContentsMargins(5, 15, 5, 5)
-        self.spectrum_matrix = SpectrumMatrixWidget(N_CHANNELS, history_depth=15)
+        matrix_layout.setContentsMargins(3, 10, 3, 3)
+        self.spectrum_matrix = SpectrumMatrixWidget(N_CHANNELS, history_depth=10)
         matrix_layout.addWidget(self.spectrum_matrix)
-        left_layout.addWidget(matrix_group, stretch=2)
+        left_layout.addWidget(matrix_group, stretch=1)
         
         # Waterfall (optional, in tab)
         waterfall_group = QGroupBox("SPECTRUM WATERFALL")
         waterfall_layout = QVBoxLayout(waterfall_group)
-        waterfall_layout.setContentsMargins(5, 15, 5, 5)
-        self.waterfall_widget = PlotWaterfallDiagram(FFT_SIZE, 80)
+        waterfall_layout.setContentsMargins(3, 10, 3, 3)
+        self.waterfall_widget = PlotWaterfallDiagram(FFT_SIZE, 50)
         waterfall_layout.addWidget(self.waterfall_widget)
         left_layout.addWidget(waterfall_group, stretch=1)
         
         content_splitter.addWidget(left_widget)
         
-        # --- CENTER: User Classification ---
+        # --- CENTER: User Classification + QoS Metrics ---
         center_widget = QWidget()
         center_layout = QVBoxLayout(center_widget)
         center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.setSpacing(5)
         
         classification_group = QGroupBox("CHANNEL ANALYSIS")
         classification_layout = QVBoxLayout(classification_group)
         classification_layout.setContentsMargins(5, 15, 5, 5)
         self.user_classification = UserClassificationPanel(N_CHANNELS, SWEEP_START_FREQ)
         classification_layout.addWidget(self.user_classification)
-        center_layout.addWidget(classification_group)
+        center_layout.addWidget(classification_group, stretch=2)
+        
+        # QoS Metrics Panel (only in simulation mode)
+        if not use_hardware:
+            qos_group = QGroupBox("6G QoS METRICS")
+            qos_layout = QVBoxLayout(qos_group)
+            qos_layout.setContentsMargins(5, 15, 5, 5)
+            self.qos_panel = QoSMetricsPanel()
+            qos_layout.addWidget(self.qos_panel)
+            center_layout.addWidget(qos_group, stretch=1)
+        else:
+            self.qos_panel = None
         
         content_splitter.addWidget(center_widget)
         
@@ -315,14 +404,26 @@ class CognitiveRadioDashboard(QMainWindow):
         # Update user type based on channel state
         self.card_user_type.set_value("SECONDARY", "Opportunistic Access")
         
-        # Status bar
-        mode = "HW" if self.use_hardware else "SIM"
-        self.status_bar.showMessage(f"📡 [{mode}] {mod_text} | 📻 {chan_text}")
+        # Status bar - include simulation info
+        mode = "🔌 HW" if self.use_hardware else "🖥️ SIM"
+        self.status_bar.showMessage(f"📡 [{mode}] {mod_text} | 📻 {chan_text} | ⏱️ Real-time updates active")
     
     def _update_spectrum(self, occupancy: np.ndarray):
-        """Update spectrum visualizations."""
-        self.spectrum_heatmap.update_occupancy(occupancy)
-        self.spectrum_matrix.update_occupancy(occupancy)
+        """Update spectrum visualizations with 6G service class data."""
+        # Get 6G service classes from simulation if available
+        service_classes = None
+        try:
+            if not self.use_hardware:
+                from radio.simulation import get_simulator
+                simulator = get_simulator()
+                channel_info = simulator.get_all_channel_info()
+                service_classes = [ch.get('service_class', 'FREE') for ch in channel_info]
+        except Exception:
+            pass
+        
+        # Update widgets with both occupancy and service class data
+        self.spectrum_heatmap.update_occupancy(occupancy, service_classes)
+        self.spectrum_matrix.update_occupancy(occupancy, service_classes)
     
     def _update_sweep_info(self, sweep_info: dict):
         """Update all panels with sweep information."""
@@ -342,6 +443,8 @@ class CognitiveRadioDashboard(QMainWindow):
         action_probs = sweep_info.get('action_probs', None)
         channel_frequencies = sweep_info.get('channel_frequencies', [])
         is_free = sweep_info.get('is_free', True)
+        simulation_mode = sweep_info.get('simulation_mode', True)
+        channel_info_list = sweep_info.get('channel_info', [])
         
         # Calculate confidence from action probs
         if action_probs is not None:
@@ -357,18 +460,33 @@ class CognitiveRadioDashboard(QMainWindow):
             else:
                 freq = SWEEP_START_FREQ + (i + 0.5) * 1e6
             
-            # Determine power from occupancy (simulated)
-            occ = occupancy[i] if i < len(occupancy) else 0.0
-            power_db = -20 if occ > 0.6 else (-35 if occ > 0.3 else -50)
-            
-            channel_data.append({
-                'channel': i,
-                'freq': freq,
-                'modulation': modulation if i == channel else '--',
-                'occupancy': occ,
-                'power_db': power_db,
-                'is_ours': (i == channel)
-            })
+            # Use simulation data if available
+            if simulation_mode and i < len(channel_info_list):
+                sim_info = channel_info_list[i]
+                channel_data.append({
+                    'channel': i,
+                    'freq': freq,
+                    'modulation': sim_info.get('modulation', '--'),
+                    'occupancy': sim_info.get('occupancy', 0.0),
+                    'power_db': sim_info.get('power_db', -50),
+                    'user_type': sim_info.get('user_type', 'FREE'),
+                    'service_class': sim_info.get('service_class', None),  # 6G service class
+                    'is_primary': sim_info.get('is_primary', False),
+                    'is_ours': (i == channel)
+                })
+            else:
+                # Fallback: determine power from occupancy
+                occ = occupancy[i] if i < len(occupancy) else 0.0
+                power_db = -20 if occ > 0.6 else (-35 if occ > 0.3 else -50)
+                
+                channel_data.append({
+                    'channel': i,
+                    'freq': freq,
+                    'modulation': modulation if i == channel else '--',
+                    'occupancy': occ,
+                    'power_db': power_db,
+                    'is_ours': (i == channel)
+                })
         
         self.user_classification.update_channels(channel_data)
         self.user_classification.highlight_channel(channel)
@@ -405,6 +523,15 @@ class CognitiveRadioDashboard(QMainWindow):
             'occupied_count': int(occupied_count),
         }
         self.intel_panel.update_intelligence(intel_data)
+        
+        # Update QoS panel (simulation mode only)
+        qos_summary = sweep_info.get('qos_summary', {})
+        if self.qos_panel is not None and qos_summary:
+            self.qos_panel.update_metrics(qos_summary)
+        
+        # Update system status card with sweep count
+        sweep_count = sweep_info.get('sweep_count', 0)
+        self.card_status.set_value("RUNNING", f"Sweep #{sweep_count}")
     
     def closeEvent(self, event):
         """Clean shutdown."""

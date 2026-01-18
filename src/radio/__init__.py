@@ -29,6 +29,12 @@ Hardware Requirements
 
 from .capture import FullCaptureFlowgraph, GNURADIO_AVAILABLE
 from .sweeper import SpectrumSweeper, SweepMode, SweepResult, ChannelInfo
+from .simulation import (
+    SimulationTrafficGenerator, 
+    TrafficConfig,
+    get_simulator,
+    reset_simulator,
+)
 
 __all__ = [
     "FullCaptureFlowgraph", 
@@ -37,4 +43,8 @@ __all__ = [
     "SweepMode",
     "SweepResult", 
     "ChannelInfo",
+    "SimulationTrafficGenerator",
+    "TrafficConfig",
+    "get_simulator",
+    "reset_simulator",
 ]

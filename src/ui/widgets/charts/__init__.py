@@ -7,6 +7,7 @@ from .probability import BarGraphWidget
 from .spectrum_matrix import SpectrumMatrixWidget, SpectrumHeatmapWidget
 from .user_classification import UserClassificationPanel
 from .rl_visualizer import RLDecisionPanel, AllocationIntelligencePanel
+from .qos_metrics import QoSMetricsPanel
 
 __all__ = [
     'PlotWaterfallDiagram',
@@ -16,4 +17,5 @@ __all__ = [
     'UserClassificationPanel',
     'RLDecisionPanel',
     'AllocationIntelligencePanel',
+    'QoSMetricsPanel',
 ]

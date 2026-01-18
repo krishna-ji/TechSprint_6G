@@ -1,11 +1,17 @@
 """
-User Classification Panel
+User Classification Panel - 6G Network Slicing
 
 Displays channel-by-channel classification showing:
 - Modulation type (via AMC)
-- User type (Primary/Secondary/Tertiary)
+- 6G Service Class (URLLC/mMTC/eMBB/PU)
 - Power level
-- Status
+- QoS Status
+
+6G Service Classes (3GPP):
+  - URLLC: Ultra-Reliable Low-Latency Communications (<1ms, 99.9999%)
+  - mMTC: massive Machine-Type Communications (1M devices/km²)
+  - eMBB: enhanced Mobile Broadband (20+ Gbps)
+  - PU: Primary User (Licensed incumbent)
 """
 
 from PyQt6.QtWidgets import (
@@ -19,22 +25,26 @@ import numpy as np
 
 class UserClassificationPanel(QWidget):
     """
-    Table showing user classification for each channel.
+    Table showing 6G service classification for each channel.
     
     Columns:
     - Channel number
     - Frequency (MHz)
     - Modulation (via AMC)
-    - User Type (PU/SU/TU/FREE)
+    - Service Class (6G network slice type)
     - Power (dB)
     - Status
     """
     
+    # 6G Service Class definitions with colors and tooltips
     USER_TYPES = {
-        'PU': ('Primary User', '#E74C3C', 'Licensed broadcaster'),
-        'SU': ('Secondary User', '#3498DB', 'Opportunistic access (You)'),
-        'TU': ('Tertiary User', '#9B59B6', 'Low-priority access'),
-        'FREE': ('Available', '#2ECC71', 'Spectrum hole'),
+        'PU': ('Primary User', '#E74C3C', 'Licensed incumbent (FM broadcast)'),
+        'URLLC': ('URLLC', '#FF6B35', 'Ultra-Reliable Low-Latency (<1ms)'),
+        'mMTC': ('mMTC', '#9B59B6', 'massive Machine-Type Comm'),
+        'eMBB': ('eMBB', '#3498DB', 'enhanced Mobile Broadband'),
+        'SU': ('Secondary', '#17A2B8', 'Secondary User'),
+        'TU': ('Tertiary', '#6C757D', 'Tertiary/Low-priority'),
+        'FREE': ('Available', '#2ECC71', 'Spectrum hole - available'),
     }
     
     def __init__(self, n_channels: int = 20, start_freq: float = 88e6):
@@ -47,12 +57,12 @@ class UserClassificationPanel(QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
         
-        # Title with AMC label
+        # Title with 6G label
         title_layout = QHBoxLayout()
-        title = QLabel("USER CLASSIFICATION")
+        title = QLabel("6G SERVICE CLASSIFICATION")
         title.setStyleSheet("color: #00E5FF; font-weight: bold; font-size: 12px;")
         
-        amc_label = QLabel("(via AMC)")
+        amc_label = QLabel("(via AMC + Network Slicing)")
         amc_label.setStyleSheet("color: #888; font-size: 10px; font-style: italic;")
         
         title_layout.addWidget(title)
@@ -60,14 +70,18 @@ class UserClassificationPanel(QWidget):
         title_layout.addStretch()
         layout.addLayout(title_layout)
         
-        # Legend
+        # Legend - 6G service classes
         legend_layout = QHBoxLayout()
-        legend_layout.setSpacing(10)
-        for code, (name, color, _) in self.USER_TYPES.items():
-            lbl = QLabel(f"● {code}")
-            lbl.setStyleSheet(f"color: {color}; font-size: 10px; font-weight: bold;")
-            lbl.setToolTip(name)
-            legend_layout.addWidget(lbl)
+        legend_layout.setSpacing(8)
+        # Show key service classes
+        key_types = ['PU', 'URLLC', 'mMTC', 'eMBB', 'FREE']
+        for code in key_types:
+            if code in self.USER_TYPES:
+                name, color, tooltip = self.USER_TYPES[code]
+                lbl = QLabel(f"● {code}")
+                lbl.setStyleSheet(f"color: {color}; font-size: 9px; font-weight: bold;")
+                lbl.setToolTip(f"{name}: {tooltip}")
+                legend_layout.addWidget(lbl)
         legend_layout.addStretch()
         layout.addLayout(legend_layout)
         
@@ -75,7 +89,7 @@ class UserClassificationPanel(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            "CH", "FREQ", "MODULATION", "USER", "PWR", "STATUS"
+            "CH", "FREQ", "MODULATION", "SERVICE", "PWR", "STATUS"
         ])
         
         # Style table
@@ -123,7 +137,7 @@ class UserClassificationPanel(QWidget):
         layout.addWidget(self.table)
         
         # Summary stats
-        self.summary_label = QLabel("PU: 0 | SU: 0 | FREE: 0")
+        self.summary_label = QLabel("PU: 0 | URLLC: 0 | mMTC: 0 | eMBB: 0 | FREE: 0")
         self.summary_label.setStyleSheet("color: #888; font-size: 10px;")
         layout.addWidget(self.summary_label)
         
@@ -152,32 +166,45 @@ class UserClassificationPanel(QWidget):
     
     def classify_user(self, modulation: str, occupancy: float, power_db: float) -> str:
         """
-        Classify user type based on modulation and signal characteristics.
+        Classify 6G service type based on modulation and signal characteristics.
         
-        Primary User (PU): Strong FM/AM broadcasts, licensed services
-        Secondary User (SU): Our cognitive radio transmissions
-        Tertiary User (TU): Weak/intermittent signals
-        FREE: No significant signal
+        Service Classes:
+        - PU: Primary User - Strong FM/AM broadcasts, licensed services
+        - URLLC: Ultra-Reliable Low-Latency - QPSK with strong signal
+        - mMTC: massive MTC - BPSK/OOK with weak signal (battery-constrained)
+        - eMBB: enhanced Mobile Broadband - High-order modulation (64QAM, 16QAM)
+        - FREE: No significant signal (spectrum hole)
         """
         if occupancy < 0.3:
             return 'FREE'
         
-        # Strong analog broadcasts = Primary Users
+        # Strong analog broadcasts = Primary Users (licensed FM)
         if modulation in {'FM', 'AM-DSB', 'AM-SSB'} and power_db > -20:
             return 'PU'
         
-        # Digital modulations with strong signal = might be PU or SU
-        if modulation in {'BPSK', 'QPSK', '8PSK', '16QAM'}:
-            if power_db > -15:
-                return 'PU'
-            elif power_db > -25:
-                return 'SU'
+        # High-order digital modulation = eMBB (high throughput)
+        if modulation in {'64QAM', '16QAM', '256QAM'}:
+            if power_db > -25:
+                return 'eMBB'
             else:
-                return 'TU'
+                return 'mMTC'  # Weak high-order = likely compressed mMTC
         
-        # Weak signals = Tertiary
-        if occupancy < 0.6 or power_db < -25:
-            return 'TU'
+        # QPSK with strong signal = URLLC (robust, low latency)
+        if modulation in {'QPSK', '8PSK'}:
+            if power_db > -20:
+                return 'URLLC'
+            elif power_db > -30:
+                return 'eMBB'
+            else:
+                return 'mMTC'
+        
+        # BPSK/OOK = mMTC (simple, low power IoT)
+        if modulation in {'BPSK', 'OOK', '4ASK'}:
+            return 'mMTC'
+        
+        # Weak signals = mMTC (battery-constrained IoT)
+        if occupancy < 0.6 or power_db < -30:
+            return 'mMTC'
         
         return 'PU'
     
@@ -190,8 +217,10 @@ class UserClassificationPanel(QWidget):
         ----------
         channel_data : list of dict
             Each dict contains: channel, freq, modulation, occupancy, power_db
+            Optionally: user_type (from simulation), is_primary, service_class
         """
-        pu_count = su_count = tu_count = free_count = 0
+        # Count by 6G service class
+        counts = {'PU': 0, 'URLLC': 0, 'mMTC': 0, 'eMBB': 0, 'SU': 0, 'TU': 0, 'FREE': 0}
         
         for data in channel_data:
             ch = data.get('channel', 0)
@@ -203,24 +232,47 @@ class UserClassificationPanel(QWidget):
             occ = data.get('occupancy', 0)
             power = data.get('power_db', -40)
             is_ours = data.get('is_ours', False)
+            is_primary = data.get('is_primary', False)
+            sim_user_type = data.get('user_type', None)
+            service_class = data.get('service_class', None)
             
-            # Classify user type
+            # Determine 6G service class
             if is_ours:
-                user_type = 'SU'
+                user_type = 'SU'  # Our cognitive radio = Secondary User
+            elif service_class:
+                # Direct service class from simulation (URLLC, mMTC, eMBB)
+                user_type = service_class
+            elif sim_user_type:
+                # Map simulation user types to 6G service classes
+                user_type_map = {
+                    'FREE': 'FREE',
+                    'PU': 'PU',
+                    'URLLC': 'URLLC',
+                    'mMTC': 'mMTC',
+                    'eMBB': 'eMBB',
+                    # Legacy mappings for backward compatibility
+                    'SU_CRIT': 'URLLC',    # Critical IoT = URLLC
+                    'SU_DELAY': 'mMTC',    # Delay tolerant = mMTC
+                    'SU_HIGH': 'eMBB',     # High throughput = eMBB
+                    'TU': 'mMTC',
+                    'SU': 'SU',
+                }
+                user_type = user_type_map.get(sim_user_type, 
+                                             self.classify_user(mod, occ, power))
+                # Override: primary user channels from simulation
+                if is_primary:
+                    user_type = 'PU'
             else:
                 user_type = self.classify_user(mod, occ, power)
             
-            # Count users
-            if user_type == 'PU':
-                pu_count += 1
-            elif user_type == 'SU':
-                su_count += 1
-            elif user_type == 'TU':
-                tu_count += 1
-            else:
-                free_count += 1
+            # Ensure valid user type
+            if user_type not in self.USER_TYPES:
+                user_type = 'FREE'
             
-            # Update table
+            # Count by service class
+            counts[user_type] = counts.get(user_type, 0) + 1
+            
+            # Get color for this service class
             color = self.USER_TYPES[user_type][1]
             
             # Channel
@@ -237,14 +289,19 @@ class UserClassificationPanel(QWidget):
             item = self.table.item(ch, 2)
             if item:
                 item.setText(mod)
+                # Color by modulation type
                 if mod in {'FM', 'AM-DSB', 'AM-SSB'}:
-                    item.setForeground(QColor('#E74C3C'))
-                elif mod in {'BPSK', 'QPSK', '8PSK', '16QAM'}:
-                    item.setForeground(QColor('#3498DB'))
+                    item.setForeground(QColor('#E74C3C'))  # Red for analog
+                elif mod in {'64QAM', '256QAM'}:
+                    item.setForeground(QColor('#3498DB'))  # Blue for high-order
+                elif mod in {'QPSK', '8PSK', '16QAM'}:
+                    item.setForeground(QColor('#FF6B35'))  # Orange for URLLC-type
+                elif mod in {'BPSK', 'OOK', '4ASK'}:
+                    item.setForeground(QColor('#9B59B6'))  # Purple for mMTC
                 else:
                     item.setForeground(QColor('#888'))
             
-            # User type
+            # Service class (6G)
             item = self.table.item(ch, 3)
             if item:
                 item.setText(user_type)
@@ -273,16 +330,26 @@ class UserClassificationPanel(QWidget):
                 elif user_type == 'PU':
                     item.setText("✖ Licensed")
                     item.setForeground(QColor('#E74C3C'))
+                elif user_type == 'URLLC':
+                    item.setText("⚡ Critical")
+                    item.setForeground(QColor('#FF6B35'))
+                elif user_type == 'mMTC':
+                    item.setText("📡 IoT")
+                    item.setForeground(QColor('#9B59B6'))
+                elif user_type == 'eMBB':
+                    item.setText("📺 Stream")
+                    item.setForeground(QColor('#3498DB'))
                 else:
                     item.setText("○ Occupied")
                     item.setForeground(QColor('#F1C40F'))
         
-        # Update summary
+        # Update summary with 6G service class counts
         self.summary_label.setText(
-            f"<span style='color:#E74C3C'>PU: {pu_count}</span> | "
-            f"<span style='color:#3498DB'>SU: {su_count}</span> | "
-            f"<span style='color:#9B59B6'>TU: {tu_count}</span> | "
-            f"<span style='color:#2ECC71'>FREE: {free_count}</span>"
+            f"<span style='color:#E74C3C'>PU:{counts['PU']}</span> │ "
+            f"<span style='color:#FF6B35'>URLLC:{counts['URLLC']}</span> │ "
+            f"<span style='color:#9B59B6'>mMTC:{counts['mMTC']}</span> │ "
+            f"<span style='color:#3498DB'>eMBB:{counts['eMBB']}</span> │ "
+            f"<span style='color:#2ECC71'>FREE:{counts['FREE']}</span>"
         )
     
     def highlight_channel(self, channel: int):

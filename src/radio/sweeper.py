@@ -227,17 +227,55 @@ class SpectrumSweeper:
         freq = self.channel_freqs[channel_idx]
         channel = self.channels[channel_idx]
         
+        # =====================================================================
+        # SIMULATION MODE: Use simulation's REAL occupancy data directly
+        # =====================================================================
+        if self.radio is None:
+            try:
+                from radio.simulation import get_simulator
+                simulator = get_simulator()
+                
+                # Step the simulation forward ONCE at the start of each sweep
+                # This ensures all channels see the same time snapshot
+                if channel_idx == 0:
+                    simulator.step()
+                    # Cache all channel info at this snapshot
+                    self._sim_snapshot = simulator.get_all_channel_info()
+                
+                # Use cached snapshot (ensures consistency)
+                if hasattr(self, '_sim_snapshot') and channel_idx < len(self._sim_snapshot):
+                    sim_info = self._sim_snapshot[channel_idx]
+                else:
+                    sim_info = simulator.get_channel_info(channel_idx)
+                
+                # Use simulation's occupancy directly (no IQ-based estimation)
+                channel.occupancy = sim_info['occupancy']
+                channel.modulation = sim_info['modulation']
+                channel.power_db = sim_info['power_db']
+                channel.confidence = 0.95  # Simulation is ground truth
+                channel.last_update = time.time()
+                channel.is_primary_user = sim_info['is_primary']
+                
+                # Update state vector with REAL simulation occupancy
+                self.channel_states[channel_idx] = sim_info['occupancy']
+                
+                return channel
+                
+            except ImportError:
+                # Fall through to IQ-based approach
+                pass
+        
+        # =====================================================================
+        # HARDWARE MODE: Use IQ capture and AMC classification
+        # =====================================================================
         # Tune radio to channel frequency
         if self.radio is not None:
             self.radio.set_frequency(freq)
             time.sleep(0.005)  # Let tuner settle
-        
-        # Capture IQ samples
-        if self.radio is not None:
             iq_data = self.radio.get_iq_sample()
         else:
-            # Simulation fallback
-            iq_data = self._simulate_channel_iq(channel_idx)
+            # Fallback simulation
+            iq_data = self._simulate_channel_iq_basic(channel_idx)
         
         # Compute power
         power_db = self._compute_power(iq_data)
@@ -279,7 +317,29 @@ class SpectrumSweeper:
         return channel
     
     def _simulate_channel_iq(self, channel_idx: int) -> np.ndarray:
-        """Generate simulated IQ data for testing without hardware."""
+        """
+        Generate simulated IQ data for testing without hardware.
+        
+        Uses the SimulationTrafficGenerator for realistic, time-varying
+        IoT traffic patterns with proper user classification.
+        """
+        try:
+            from radio.simulation import get_simulator
+            simulator = get_simulator()
+            
+            # Step the simulation forward periodically
+            if channel_idx == 0:
+                simulator.step()
+            
+            # Get IQ for this channel
+            return simulator.generate_iq(channel_idx)
+        
+        except ImportError:
+            # Fallback to basic simulation if module not available
+            return self._simulate_channel_iq_basic(channel_idx)
+    
+    def _simulate_channel_iq_basic(self, channel_idx: int) -> np.ndarray:
+        """Basic simulation fallback without the full traffic generator."""
         N = 1024
         t = np.arange(N)
         fc = 0.1
@@ -453,29 +513,56 @@ class SpectrumSweeper:
         }
     
     def print_spectrum_map(self) -> str:
-        """Print ASCII spectrum map for debugging."""
+        """Print ASCII spectrum map for debugging with 6G service classes."""
         lines = []
-        lines.append("="*60)
-        lines.append("SPECTRUM MAP")
-        lines.append("="*60)
+        lines.append("="*70)
+        lines.append("📡 6G SPECTRUM OCCUPANCY MAP")
+        lines.append("="*70)
         
+        # Use cached snapshot if available, otherwise query fresh
+        service_info = {}
+        try:
+            if hasattr(self, '_sim_snapshot') and self._sim_snapshot:
+                for ch_idx, info in enumerate(self._sim_snapshot):
+                    service_info[ch_idx] = info.get('service_class', 'FREE')
+            else:
+                from radio.simulation import get_simulator
+                simulator = get_simulator()
+                for ch_idx in range(self.n_channels):
+                    info = simulator.get_channel_info(ch_idx)
+                    service_info[ch_idx] = info.get('service_class', 'FREE')
+        except:
+            pass
+        
+        # Build visual bar with 6G service class colors
         bar = ""
         for i, ch in enumerate(self.channels):
-            if ch.occupancy < 0.3:
+            sc = service_info.get(i, 'FREE')
+            if sc == 'FREE' or ch.occupancy < 0.3:
                 bar += "🟢"  # Free
-            elif ch.occupancy < 0.6:
-                bar += "🟡"  # Partially occupied
+            elif sc == 'PU':
+                bar += "📻"  # Primary User (broadcast)
+            elif sc == 'URLLC':
+                bar += "⚡"  # URLLC (ultra-reliable)
+            elif sc == 'mMTC':
+                bar += "📡"  # mMTC (IoT sensors)
+            elif sc == 'eMBB':
+                bar += "📺"  # eMBB (broadband)
             else:
-                bar += "🔴"  # Occupied
+                bar += "🔴"  # Unknown occupied
         
         lines.append(f"Channels: {bar}")
         lines.append(f"          {''.join([str(i%10) for i in range(self.n_channels)])}")
         lines.append("")
         
+        # Legend
+        lines.append("Legend: 🟢FREE  📻PU  ⚡URLLC  📡mMTC  📺eMBB")
+        lines.append("")
+        
         holes = self.find_spectrum_holes()
-        lines.append(f"Free channels: {holes.tolist()}")
-        lines.append(f"Best channel: {self._select_best_channel(holes)}")
-        lines.append("="*60)
+        lines.append(f"🔍 Free channels: {holes.tolist()}")
+        lines.append(f"⭐ Recommended: CH {self._select_best_channel(holes)}")
+        lines.append("="*70)
         
         result = "\n".join(lines)
         print(result)

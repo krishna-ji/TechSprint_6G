@@ -192,6 +192,26 @@ class DataWorker(QObject):
                 for ch in range(self.n_channels)
             ]
             
+            # Get simulation-specific data if available
+            channel_info_list = []
+            try:
+                if not self.use_hardware:
+                    from radio.simulation import get_simulator
+                    simulator = get_simulator()
+                    channel_info_list = simulator.get_all_channel_info()
+            except Exception:
+                pass
+            
+            # Get QoS metrics from simulation
+            qos_summary = {}
+            try:
+                if not self.use_hardware:
+                    from radio.simulation import get_simulator
+                    simulator = get_simulator()
+                    qos_summary = simulator.get_qos_summary()
+            except Exception:
+                pass
+            
             sweep_info = {
                 "sweep_count": self.sweeper.sweep_count,
                 "spectrum_holes": spectrum_holes.tolist(),
@@ -207,6 +227,11 @@ class DataWorker(QObject):
                 "modulation": mod_class,
                 "prev_channel": prev_channel,
                 "action": "STAY" if prev_channel == recommended_channel else "SWITCH",
+                # Simulation-specific data
+                "simulation_mode": not self.use_hardware,
+                "channel_info": channel_info_list,
+                # 6G QoS metrics
+                "qos_summary": qos_summary,
             }
             
             # Emit ALL data
@@ -222,24 +247,40 @@ class DataWorker(QObject):
             time.sleep(0.1)
     
     def _simulate_iq(self, channel: int, channel_states: np.ndarray) -> np.ndarray:
-        """Generate simulated IQ based on channel occupancy."""
-        N = SAMPLE_SIZE
-        t = np.arange(N)
-        fc = 0.1
-        carrier = np.exp(1j * 2 * np.pi * fc * t)
+        """
+        Generate simulated IQ based on actual simulation traffic.
         
-        if channel_states[channel] > 0.5:
-            # Occupied channel - generate QPSK-like signal
-            bits = np.random.randint(0, 4, N)
-            symbols = np.exp(1j * np.pi/4 * (2*bits + 1))
-            signal = symbols * carrier * 0.5
-            noise = (np.random.randn(N) + 1j * np.random.randn(N)) * 0.1
-        else:
-            # Free channel - just noise
-            signal = np.zeros(N, dtype=np.complex64)
-            noise = (np.random.randn(N) + 1j * np.random.randn(N)) * 0.05
-        
-        return (signal + noise).astype(np.complex64)
+        Uses the simulation engine's generate_iq() method which creates
+        realistic IQ signals based on:
+        - Service class (URLLC/mMTC/eMBB/PU/FREE)
+        - Modulation type (QPSK/BPSK/64QAM/FM/Noise)
+        - Power levels
+        - Channel fading effects
+        """
+        try:
+            from radio.simulation import get_simulator
+            simulator = get_simulator()
+            # Use the simulation's proper IQ generator
+            return simulator.generate_iq(channel)
+        except Exception as e:
+            # Fallback to basic simulation if simulator unavailable
+            N = SAMPLE_SIZE
+            t = np.arange(N)
+            fc = 0.1
+            carrier = np.exp(1j * 2 * np.pi * fc * t)
+            
+            if channel_states[channel] > 0.5:
+                # Occupied channel - generate QPSK-like signal
+                bits = np.random.randint(0, 4, N)
+                symbols = np.exp(1j * np.pi/4 * (2*bits + 1))
+                signal = symbols * carrier * 0.5
+                noise = (np.random.randn(N) + 1j * np.random.randn(N)) * 0.1
+            else:
+                # Free channel - just noise
+                signal = np.zeros(N, dtype=np.complex64)
+                noise = (np.random.randn(N) + 1j * np.random.randn(N)) * 0.05
+            
+            return (signal + noise).astype(np.complex64)
     
     def stop(self):
         self.running = False
