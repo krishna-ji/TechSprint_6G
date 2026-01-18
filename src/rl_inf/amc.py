@@ -15,6 +15,7 @@ class AMCClassifier:
     Automatic Modulation Classifier using ONNX inference.
     
     Preprocesses IQ samples and classifies modulation type.
+    The model is trained on 10 modulation classes from RadioML/similar dataset.
     
     Parameters
     ----------
@@ -24,8 +25,21 @@ class AMCClassifier:
         Size of sliding window for preprocessing (default: 224)
     """
     
-    # Class labels
-    CLASSES = ["Noise", "FM", "BPSK", "QPSK"]
+    # Class labels - 9 modulations as trained (output shape is 10 but 9 modulation schemes)
+    # The classes are based on the training notebook which uses modulation_schemes = range(9)
+    # Mapping based on common RadioML/GOLD_XYZ_OSC datasets:
+    CLASSES = [
+        "OOK",       # 0 - On-Off Keying
+        "4ASK",      # 1 - 4-Level Amplitude Shift Keying  
+        "8ASK",      # 2 - 8-Level Amplitude Shift Keying
+        "BPSK",      # 3 - Binary Phase Shift Keying
+        "QPSK",      # 4 - Quadrature Phase Shift Keying
+        "8PSK",      # 5 - 8-Level Phase Shift Keying
+        "16QAM",     # 6 - 16-Quadrature Amplitude Modulation
+        "AM-SSB",    # 7 - AM Single Sideband
+        "AM-DSB",    # 8 - AM Double Sideband
+        "FM",        # 9 - Frequency Modulation
+    ]
     
     def __init__(self, model_path: str | Path, window_size: int = 224):
         self.model_path = Path(model_path)
@@ -119,7 +133,8 @@ class AMCClassifier:
         Returns
         -------
         np.ndarray
-            Probability distribution over classes (n_windows, n_classes)
+            Probability distribution over classes (1, n_classes)
+            Note: Model internally aggregates 8 windows into 1 prediction.
         """
         logits = self.predict_logits(iq_data)
         return self._softmax(logits)

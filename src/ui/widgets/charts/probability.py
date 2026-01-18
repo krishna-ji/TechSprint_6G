@@ -32,8 +32,11 @@ class BarGraphWidget(QWidget):
         self.initialized = False
         self.data = np.array([])
         
-        # Class labels
-        self.class_labels = ["Noise", "FM", "BPSK", "QPSK"]
+        # Class labels - must match AMC model's 10 classes
+        self.class_labels = [
+            "OOK", "4ASK", "8ASK", "BPSK", "QPSK",
+            "8PSK", "16QAM", "AM-SSB", "AM-DSB", "FM"
+        ]
 
         # Disable mouse interaction
         self.plot_widget.setMouseEnabled(x=False, y=False)

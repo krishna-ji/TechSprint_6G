@@ -58,6 +58,32 @@ FIGURE_REFRESH_RATE = 200
 PROBABILITY_REFRESH_RATE = 1000
 
 # =============================================================================
+# SPECTRUM SWEEP CONFIGURATION
+# =============================================================================
+# Sweep range - FM Broadcast Band (88-108 MHz) is a good test range
+SWEEP_START_FREQ = 88.0e6       # Start frequency in Hz
+SWEEP_END_FREQ = 108.0e6        # End frequency in Hz
+SWEEP_BANDWIDTH = SWEEP_END_FREQ - SWEEP_START_FREQ  # Total sweep bandwidth
+
+# Channel allocation
+CHANNEL_SPACING = SWEEP_BANDWIDTH / N_CHANNELS  # 1 MHz per channel
+SWEEP_DWELL_TIME = 0.02         # Time to dwell on each channel (seconds)
+TUNER_SETTLE_TIME = 0.005       # Time for tuner to settle after freq change
+
+# Occupancy detection thresholds
+NOISE_FLOOR_THRESHOLD = 0.15    # Below this = noise (channel free)
+WEAK_SIGNAL_THRESHOLD = 0.4     # Below this = weak signal
+STRONG_SIGNAL_THRESHOLD = 0.7   # Above this = strong signal (definitely occupied)
+
+# Sweep modes
+SWEEP_MODE_SEQUENTIAL = "sequential"  # Sweep one channel at a time
+SWEEP_MODE_POWER = "power"            # Quick power detection only
+SWEEP_MODE_CLASSIFY = "classify"       # Full AMC classification
+
+# Default sweep mode
+DEFAULT_SWEEP_MODE = SWEEP_MODE_CLASSIFY
+
+# =============================================================================
 # HARDWARE CONFIGURATION
 # =============================================================================
 VARS = {

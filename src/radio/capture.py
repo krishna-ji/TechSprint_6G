@@ -74,7 +74,14 @@ if GNURADIO_AVAILABLE:
                 quad_rate=int(samp_rate),
                 audio_decimation=int(samp_rate // 48000),
             )
-            self.audio_sink = audio.sink(48000, "", True)
+            # Audio sink - make optional to avoid ALSA errors
+            try:
+                self.audio_sink = audio.sink(48000, "", True)
+                self.audio_available = True
+            except Exception as e:
+                print(f"ℹ️  Audio sink unavailable: {e} (FM playback disabled)")
+                self.audio_sink = None
+                self.audio_available = False
 
             # Connect constellation branch
             self.connect(self.src, self.throttle, self.low_pass_filter)
@@ -115,6 +122,8 @@ if GNURADIO_AVAILABLE:
 
         def mute_fm(self) -> None:
             """Mute FM audio output."""
+            if not self.audio_available or self.audio_sink is None:
+                return
             self.lock()
             try:
                 self.disconnect(self.src, self.wfm_demod, self.audio_sink)
@@ -125,6 +134,8 @@ if GNURADIO_AVAILABLE:
 
         def unmute_fm(self) -> None:
             """Enable FM audio output."""
+            if not self.audio_available or self.audio_sink is None:
+                return
             self.lock()
             try:
                 self.connect(self.src, self.wfm_demod, self.audio_sink)

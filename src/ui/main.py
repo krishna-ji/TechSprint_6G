@@ -103,8 +103,9 @@ class CognitiveRadioWindow(QMainWindow):
     - Modulation classification probabilities
     """
     
-    def __init__(self):
+    def __init__(self, use_hardware: bool = False):
         super().__init__()
+        self.use_hardware = use_hardware
         self.setWindowTitle("Cognitive Radio - Spectrum Intelligence")
         self.setGeometry(50, 50, 1400, 900)
         self.setWindowIcon(QIcon(qta.icon('mdi.radio-tower').pixmap(32, 32)))
@@ -156,7 +157,7 @@ class CognitiveRadioWindow(QMainWindow):
         main_layout.setSpacing(10)
         
         # === SYSTEM CONTROLLER ===
-        self.system = SystemController()
+        self.system = SystemController(use_hardware=self.use_hardware)
         
         # === STATUS HUD ===
         hud_layout = QHBoxLayout()
@@ -285,12 +286,29 @@ MainWindow = CognitiveRadioWindow
 
 def main():
     """Launch the Cognitive Radio application."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Cognitive Radio Dashboard")
+    parser.add_argument("--use-hardware", action="store_true", 
+                       help="Use real RTL-SDR hardware instead of simulation")
+    parser.add_argument("--simulate", action="store_true",
+                       help="Force simulation mode (default)")
+    args = parser.parse_args()
+    
     app = QApplication(sys.argv)
     
     # High DPI scaling
     app.setStyle('Fusion')
     
-    window = CognitiveRadioWindow()
+    # Determine hardware mode
+    use_hardware = args.use_hardware and not args.simulate
+    
+    if use_hardware:
+        print("🔌 Starting with HARDWARE mode (RTL-SDR)")
+    else:
+        print("🖥️  Starting with SIMULATION mode")
+    
+    window = CognitiveRadioWindow(use_hardware=use_hardware)
     window.show()
     
     # Handle Ctrl+C
