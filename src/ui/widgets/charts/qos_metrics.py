@@ -230,6 +230,18 @@ class QoSMetricsPanel(QWidget):
         qos_data : dict
             QoS summary from simulator with URLLC, mMTC, eMBB metrics
         """
+        # Handle empty or missing data gracefully
+        if not qos_data:
+            # Reset all meters to zero and show informative summary
+            self.urllc_latency.set_value(0.0, " ms")
+            self.urllc_reliability.set_value(0.0, "%")
+            self.mmtc_devices.set_value(0, "")
+            self.mmtc_success.set_value(0.0, "%")
+            self.embb_throughput.set_value(0.0, " Mbps")
+            self.embb_spectral.set_value(0.0, "%")
+            self.summary_label.setText("<span style='color:#F1C40F'>No QoS data available</span>")
+            return
+
         # URLLC metrics
         if 'URLLC' in qos_data:
             urllc = qos_data['URLLC']
@@ -278,3 +290,5 @@ class QoSMetricsPanel(QWidget):
                 f"<span style='color:{color}'>QoS Score: {score}%</span> | "
                 f"<span style='color:#888'>{total_met}/{total_reqs} requirements met</span>"
             )
+        else:
+            self.summary_label.setText("<span style='color:#F1C40F'>No QoS requirements evaluated yet</span>")
