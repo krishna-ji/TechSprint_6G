@@ -50,42 +50,48 @@ class StatusCard(QFrame):
                 padding: 3px;
             }}
         """)
-        self.setMaximumHeight(55)
+        # Use a flexible minimum height instead of a strict maximum so
+        # long modulation names or subtitles don't get clipped.
+        self.setMinimumHeight(64)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(1)
-        layout.setContentsMargins(3, 2, 3, 2)
+        layout.setSpacing(2)
+        layout.setContentsMargins(6, 4, 6, 4)
         
-        # Title
-        self.title_label = QLabel(title)
+        # Title (rendered uppercase in code for consistent cross-platform look)
+        self.title_label = QLabel(title.upper())
         self.title_label.setStyleSheet("""
             color: #888888;
             font-size: 9px;
             font-weight: bold;
-            text-transform: uppercase;
         """)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setWordWrap(False)
+        self.title_label.setFont(QFont('', 9, QFont.Weight.Bold))
         
-        # Value
+        # Value (monospace for alignment/confidence values)
         self.value_label = QLabel(initial_value)
         self.value_label.setStyleSheet(f"""
             color: {accent_color};
             font-size: 13px;
             font-weight: bold;
-            font-family: 'Consolas', 'Monaco', monospace;
         """)
         self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.value_label.setFont(QFont('Monospace', 12, QFont.Weight.Bold))
         
-        # Subtitle
+        # Subtitle (smaller, can wrap if needed)
         self.subtitle_label = QLabel("")
-        self.subtitle_label.setStyleSheet("color: #666; font-size: 8px;")
+        self.subtitle_label.setStyleSheet("color: #666; font-size: 9px;")
         self.subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.subtitle_label.setWordWrap(True)
+        self.subtitle_label.setMaximumHeight(28)
         
         layout.addWidget(self.title_label)
         layout.addWidget(self.value_label)
         layout.addWidget(self.subtitle_label)
     
     def set_value(self, value: str, subtitle: str = ""):
+        # Update text and ensure it fits within the card gracefully.
         self.value_label.setText(value)
         self.subtitle_label.setText(subtitle)
 
