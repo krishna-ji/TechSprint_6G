@@ -500,11 +500,114 @@ class SimulationTrafficGenerator:
             'interference_events': 0,
         }
         
+        # ─────────────────────────────────────────────────────────────────────
+        # Pre-recorded Data Playback (optional)
+        # ─────────────────────────────────────────────────────────────────────
+        self.playback_data = None
+        self.playback_index = 0
+        self.use_playback = False
+        
+        # Class ID to service class mapping (from dataset_pipeline)
+        self.class_id_to_service = {
+            0: ServiceClass.FREE,      # Noise
+            1: ServiceClass.PU,        # FM_PrimaryUser (Type A Critical)
+            2: ServiceClass.mMTC,      # BPSK_IoT (Type B Delay-tolerant)
+            3: ServiceClass.eMBB,      # QPSK_SecondaryUser (Type C High-throughput)
+        }
+        
+        # Class ID to modulation mapping
+        self.class_id_to_modulation = {
+            0: "Noise",
+            1: "FM",       # Primary User
+            2: "BPSK",     # mMTC
+            3: "QPSK",     # eMBB
+        }
+        
+        # Try to load spectrum data from notebooks/data/generated/
+        self._try_load_playback_data()
+        
         # Initialize devices
         self._initialize_devices()
         
         # Set primary user channels as always occupied
         self._setup_primary_users()
+    
+    def _try_load_playback_data(self):
+        """Try to load pre-recorded spectrum data for playback."""
+        import os
+        
+        # Possible paths to look for spectrum data
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks', 'data', 'generated', 'spectrum_test.npy'),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks', 'data', 'generated', 'spectrum_train.npy'),
+            'notebooks/data/generated/spectrum_test.npy',
+            'notebooks/data/generated/spectrum_train.npy',
+        ]
+        
+        for path in possible_paths:
+            try:
+                abs_path = os.path.abspath(path)
+                if os.path.exists(abs_path):
+                    self.playback_data = np.load(abs_path)
+                    self.use_playback = True
+                    self.playback_index = 0
+                    print(f"✅ Loaded spectrum playback data: {abs_path} (shape: {self.playback_data.shape})")
+                    return
+            except Exception as e:
+                pass
+        
+        print("ℹ️  No spectrum playback data found, using real-time simulation")
+    
+    def set_playback_mode(self, enabled: bool):
+        """Enable or disable playback mode."""
+        if enabled and self.playback_data is None:
+            self._try_load_playback_data()
+        self.use_playback = enabled and self.playback_data is not None
+        if self.use_playback:
+            self.playback_index = 0
+            print(f"📼 Playback mode ENABLED (data length: {len(self.playback_data)})")
+        else:
+            print("🔴 Playback mode DISABLED, using real-time simulation")
+    
+    def _apply_playback_state(self):
+        """Apply the current playback frame to simulation state."""
+        if self.playback_data is None:
+            return
+        
+        # Get current frame (with wraparound)
+        frame = self.playback_data[self.playback_index % len(self.playback_data)]
+        
+        # Apply to each channel
+        for ch_idx, class_id in enumerate(frame):
+            if ch_idx >= self.n_channels:
+                break
+            
+            service_class = self.class_id_to_service.get(int(class_id), ServiceClass.FREE)
+            modulation = self.class_id_to_modulation.get(int(class_id), "Noise")
+            
+            # Update channel state
+            self.service_classes[ch_idx] = service_class
+            self.modulations[ch_idx] = modulation
+            self.user_types[ch_idx] = int(class_id)
+            
+            # Set occupancy based on class
+            if service_class == ServiceClass.FREE:
+                self.occupancy[ch_idx] = self.rng.uniform(0.0, 0.2)
+                self.power_levels[ch_idx] = -100.0 + self.rng.uniform(-5, 5)
+            else:
+                self.occupancy[ch_idx] = self.rng.uniform(0.6, 1.0)
+                # Set power based on service class
+                if service_class == ServiceClass.PU:
+                    self.power_levels[ch_idx] = -30.0 + self.rng.uniform(-5, 5)
+                elif service_class == ServiceClass.mMTC:
+                    self.power_levels[ch_idx] = -60.0 + self.rng.uniform(-10, 10)
+                elif service_class == ServiceClass.eMBB:
+                    self.power_levels[ch_idx] = -45.0 + self.rng.uniform(-8, 8)
+                else:
+                    self.power_levels[ch_idx] = -50.0 + self.rng.uniform(-5, 5)
+        
+        # Advance playback index
+        self.playback_index += 1
     
     def _initialize_devices(self):
         """Initialize all devices with their properties."""
@@ -605,6 +708,27 @@ class SimulationTrafficGenerator:
         self.current_time += self.time_step
         self.sweep_count += 1
         
+        # ─────────────────────────────────────────────────────────────────────
+        # Playback Mode: Use pre-recorded spectrum data
+        # ─────────────────────────────────────────────────────────────────────
+        if self.use_playback and self.playback_data is not None:
+            self._apply_playback_state()
+            
+            # Still update stats for playback mode
+            self.stats['avg_occupancy'].append(np.mean(self.occupancy))
+            free_ratio = np.sum(self.occupancy < 0.3) / self.n_channels
+            self.stats['spectral_efficiency'].append(1.0 - free_ratio)
+            
+            return (
+                self.occupancy.copy(),
+                self.user_types.copy(),
+                self.modulations.copy(),
+                self.power_levels.copy()
+            )
+        
+        # ─────────────────────────────────────────────────────────────────────
+        # Real-time Simulation Mode
+        # ─────────────────────────────────────────────────────────────────────
         # Step 1: Process departures
         self._process_departures()
         
@@ -1158,6 +1282,9 @@ class SimulationTrafficGenerator:
             'false_alarms': 0,
             'correct_free': 0,
         }
+        
+        # Reset playback index
+        self.playback_index = 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

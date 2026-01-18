@@ -278,11 +278,12 @@ class CognitiveRadioDashboard(QMainWindow):
         
         # Spectrum matrix (time-frequency)
         matrix_group = QGroupBox("SPECTRUM OCCUPANCY MATRIX (Time-Frequency)")
+        matrix_group.setMinimumHeight(250)  # Ensure matrix is visible
         matrix_layout = QVBoxLayout(matrix_group)
-        matrix_layout.setContentsMargins(3, 10, 3, 3)
+        matrix_layout.setContentsMargins(3, 15, 3, 3)
         self.spectrum_matrix = SpectrumMatrixWidget(N_CHANNELS, history_depth=10)
         matrix_layout.addWidget(self.spectrum_matrix)
-        left_layout.addWidget(matrix_group, stretch=1)
+        left_layout.addWidget(matrix_group, stretch=2)  # Give more stretch
         
         # Waterfall (optional, in tab)
         waterfall_group = QGroupBox("SPECTRUM WATERFALL")
